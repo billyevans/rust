@@ -1,0 +1,106 @@
+commit fcf28c3046b2926e94368137fc056a653a99caa6
+Author: billyevans <pervushinai@gmail.com>
+Date:   Sat May 7 00:27:32 2016 +0100
+
+    Add detailed error explanation for E0505
+    
+    Part of #32777
+
+diff --git src/librustc_borrowck/diagnostics.rs src/librustc_borrowck/diagnostics.rs
+index e838921..43dd670 100644
+--- src/librustc_borrowck/diagnostics.rs
++++ src/librustc_borrowck/diagnostics.rs
+@@ -390,6 +390,85 @@ fn foo(a: &mut i32) {
+ ```
+ "##,
+ 
++E0505: r##"
++A value was moved out while it was still borrowed.
++Erroneous code example:
++
++```compile_fail
++struct Value {}
++
++fn eat(val: Value) {}
++
++fn main() {
++    let x = Value{};
++    {
++        let _ref_to_val: &Value = &x;
++        eat(x);
++    }
++}
++```
++
++Here, the function `eat` takes the ownership of `x`. However,
++`x` cannot be moved because it was borrowed to `_ref_to_val`.
++To fix that you can do few different things:
++
++* Try to avoid moving the variable.
++* Release borrow before move.
++* Implement the `Copy` trait on the type.
++
++Examples:
++
++```
++struct Value {}
++
++fn eat(val: &Value) {}
++
++fn main() {
++    let x = Value{};
++    {
++        let _ref_to_val: &Value = &x;
++        eat(&x); // pass by reference, if it's possible
++    }
++}
++```
++
++Or:
++
++```
++struct Value {}
++
++fn eat(val: Value) {}
++
++fn main() {
++    let x = Value{};
++    {
++        let _ref_to_val: &Value = &x;
++    }
++    eat(x); // release borrow and then move it.
++}
++```
++
++Or:
++
++```
++#[derive(Clone, Copy)] // implement Copy trait
++struct Value {}
++
++fn eat(val: Value) {}
++
++fn main() {
++    let x = Value{};
++    {
++        let _ref_to_val: &Value = &x;
++        eat(x); // it will be copied here.
++    }
++}
++```
++
++You can find more information about borrowing in the rust-book:
++http://doc.rust-lang.org/stable/book/references-and-borrowing.html
++"##,
++
+ E0507: r##"
+ You tried to move out of a value which was borrowed. Erroneous code example:
+ 
+@@ -515,7 +594,6 @@ register_diagnostics! {
+     E0502, // cannot borrow `..`.. as .. because .. is also borrowed as ...
+     E0503, // cannot use `..` because it was mutably borrowed
+     E0504, // cannot move `..` into closure because it is borrowed
+-    E0505, // cannot move out of `..` because it is borrowed
+     E0506, // cannot assign to `..` because it is borrowed
+     E0508, // cannot move out of type `..`, a non-copy fixed-size array
+     E0509, // cannot move out of type `..`, which defines the `Drop` trait
